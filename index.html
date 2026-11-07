@@ -3,87 +3,107 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#151515">
 <title>S570 IR Correction</title>
 <style>
 :root{--bg:#151515;--panel:#202020;--line:#343434;--text:#e8e6e1;--dim:#9a9791;--acc:#d9d3c5}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.35 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
-body{padding:10px 10px 90px;max-width:760px;margin:0 auto}
-h1{font-size:16px;margin:2px 0 8px;font-weight:600;letter-spacing:.02em}
-.row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
-button,select,input[type=text],.btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:inherit;min-height:40px}
-button:active,.btn:active{background:#2c2c2c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--text);font:15px/1.3 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;height:100dvh;padding-top:env(safe-area-inset-top)}
+button,select,input[type=text],.btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;font-size:16px;min-height:42px;touch-action:manipulation}
+button:active,.btn:active{background:#2e2e2e}
 button.on{background:var(--acc);color:#151515;border-color:var(--acc)}
 button:disabled{opacity:.45}
-select{flex:1;min-width:0}
-input[type=text]{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 input[type=file]{display:none}
-.btn{display:inline-flex;align-items:center;cursor:pointer}
-#stage{position:relative;background:#0b0b0b;border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:56vh;min-height:120px;-webkit-overflow-scrolling:touch}
-#cv{display:block;width:100%;height:auto}
-#empty{padding:46px 16px;text-align:center;color:var(--dim)}
-.seg{display:flex;flex:1}
-.seg button{flex:1;border-radius:0;margin-left:-1px}
-.seg button:first-child{border-radius:8px 0 0 8px;margin-left:0}
-.seg button:last-child{border-radius:0 8px 8px 0}
-details{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:8px 0}
-summary{padding:12px;font-weight:600;cursor:pointer;list-style:none}
-summary::-webkit-details-marker{display:none}
-summary::after{content:"+";float:right;color:var(--dim)}
-details[open] summary::after{content:"–"}
-.body{padding:0 12px 10px}
-.sl{margin:8px 0}
-.sl .t{display:flex;justify-content:space-between;color:var(--dim);font-size:13px}
-.sl .t b{font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
-.sl input[type=range]{width:100%;accent-color:var(--acc);margin:4px 0 0}
-.hint{color:var(--dim);font-size:13px;margin:6px 0}
-#bar{position:fixed;left:0;right:0;bottom:0;padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:rgba(21,21,21,.96);border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;justify-content:center}
-#bar button{flex:1;max-width:420px;background:var(--acc);color:#151515;border-color:var(--acc);font-weight:600}
-#status{position:fixed;left:0;right:0;bottom:64px;text-align:center;color:var(--dim);font-size:12px;pointer-events:none}
-.hold{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#top{display:flex;gap:6px;padding:8px;align-items:center;flex:none}
+#top select{flex:1;min-width:0;height:42px}
+#top #more{width:42px;padding:0}
+#export{background:var(--acc);color:#151515;border-color:var(--acc);font-weight:600;min-width:78px}
+#view{position:relative;flex:0 0 46%;overflow:hidden;background:#0b0b0b;touch-action:none;-webkit-user-select:none;user-select:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+#cv,#ov{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
+#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--dim)}
+#empty[hidden]{display:none}
+#empty .btn{min-height:50px;padding:0 26px;font-weight:600;background:var(--acc);color:#151515;border-color:var(--acc)}
+.ui{touch-action:manipulation}
+#tools{position:absolute;left:8px;right:8px;bottom:8px;display:flex;gap:6px}
+#tools .seg{display:flex;flex:1}
+#tools button{background:rgba(24,24,24,.86);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#tools .seg button{flex:1;border-radius:0;margin-left:-1px;padding:0 4px}
+#tools .seg button:first-child{border-radius:10px 0 0 10px;margin-left:0}
+#tools .seg button:last-child{border-radius:0 10px 10px 0}
+#tools button.on{background:var(--acc)}
+#before{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#healbar{position:absolute;left:8px;right:8px;top:8px;display:flex;gap:6px;align-items:center;background:rgba(24,24,24,.86);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:10px;padding:4px 8px}
+#healbar[hidden]{display:none}
+#healbar input{flex:1;min-width:0;accent-color:var(--acc)}
+#healbar button{min-height:36px;padding:0 10px;font-size:14px}
+#healbar .cnt{color:var(--dim);font-size:12px;min-width:44px;text-align:right}
+#toast{position:absolute;bottom:58px;left:50%;transform:translateX(-50%);max-width:92%;background:rgba(0,0,0,.78);color:var(--text);padding:7px 12px;border-radius:16px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;text-align:center}
+#toast.show{opacity:1}
+#tabs{display:flex;gap:6px;overflow-x:auto;padding:8px;flex:none;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:none;min-height:38px;border-radius:19px;padding:0 16px;font-size:15px}
+#panel{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px calc(18px + env(safe-area-inset-bottom));min-height:0}
+.hint{color:var(--dim);font-size:13px;margin:2px 0 6px}
+.sl{margin:6px 0 2px}
+.sl .t{display:flex;justify-content:space-between;align-items:center;color:var(--dim);font-size:14px}
+.sl .v{background:none;border:none;color:var(--text);min-height:32px;min-width:64px;padding:0 0 0 8px;text-align:right;font-variant-numeric:tabular-nums;font-size:15px}
+.sl .v.mod{color:var(--acc)}
+.sl .v.mod::before{content:"↺ ";color:var(--dim)}
+.sl input[type=range]{width:100%;height:34px;margin:0;accent-color:var(--acc);touch-action:pan-y}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;z-index:10}
+#sheet[hidden]{display:none}
+#sheet .card{width:100%;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom))}
+#sheet h2{font-size:16px;margin:0 0 10px}
+#sheet .row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
+#sheet input[type=text]{flex:1;min-width:0}
 </style>
 </head>
 <body>
-<h1>S570 IR Correction</h1>
-
-<div class="row">
-  <label class="btn" for="file">Load JPG</label>
-  <input id="file" type="file" accept="image/jpeg,image/*">
+<header id="top">
+  <label class="btn" for="file">Load</label><input id="file" type="file" accept="image/*">
   <select id="presetSel" aria-label="Preset"></select>
-</div>
+  <button id="more" aria-label="More">⋯</button>
+  <button id="export" disabled>Export</button>
+</header>
 
-<div id="stage"><div id="empty">Load a JPG straight from the camera.</div><canvas id="cv" hidden></canvas></div>
-
-<div class="row">
-  <div class="seg" id="modes">
-    <button data-m="view" class="on">View</button>
-    <button data-m="pick">Pick neutral</button>
-    <button data-m="heal">Heal dust</button>
+<section id="view">
+  <canvas id="cv" hidden></canvas>
+  <canvas id="ov" hidden></canvas>
+  <div id="empty" class="ui"><label class="btn" for="file">Load a JPG</label><div>Straight from the camera</div></div>
+  <div id="toast"></div>
+  <div id="healbar" class="ui" hidden>
+    <span style="font-size:13px;color:var(--dim)">Brush</span>
+    <input id="hs" type="range" min="4" max="50" step="1" value="14" aria-label="Brush size">
+    <button id="hundo">Undo</button><button id="hclr">Clear</button><span id="hcount" class="cnt">0</span>
   </div>
-</div>
-<div class="row">
-  <span style="color:var(--dim);font-size:13px">Zoom</span>
-  <input id="zoom" type="range" min="1" max="4" step="0.25" value="1" style="flex:1;accent-color:var(--acc)">
-  <button id="before" class="hold">Hold: before</button>
-</div>
+  <div id="tools" class="ui">
+    <div class="seg" id="modes">
+      <button data-m="view" class="on">View</button>
+      <button data-m="pick">Neutral</button>
+      <button data-m="heal">Heal dust</button>
+    </div>
+    <button id="before">Before</button>
+  </div>
+</section>
 
-<div id="groups"></div>
+<nav id="tabs"></nav>
+<main id="panel"></main>
 
-<details>
-  <summary>Presets</summary>
-  <div class="body">
-    <div class="row"><input id="pname" type="text" placeholder="Preset name"><button id="psave">Save</button></div>
+<div id="sheet" hidden>
+  <div class="card">
+    <h2>Presets &amp; more</h2>
+    <div class="row"><input id="pname" type="text" placeholder="Name for current settings"><button id="psave">Save</button></div>
     <div class="row">
       <button id="pdel">Delete selected</button>
       <button id="pexp">Export JSON</button>
       <label class="btn" for="pimp">Import JSON</label><input id="pimp" type="file" accept=".json,application/json">
     </div>
-    <div class="hint">Presets hold every slider. Dust spots belong to the photo, so they are not saved in presets. Built-in presets can't be deleted; edit and save under a new name.</div>
+    <div class="row"><button id="preset0">Reset all sliders</button><button id="sclose" style="margin-left:auto">Close</button></div>
+    <div class="hint">Presets hold every slider but not dust spots. Tap a slider's value to reset it. Pinch the photo to zoom, drag to pan.</div>
   </div>
-</details>
-
-<div id="status"></div>
-<div id="bar"><button id="export" disabled>Process &amp; save JPG</button></div>
+</div>
 
 <script>
 // ==CORE==
@@ -235,164 +255,240 @@ function render(src,w,h,p,spots){
 
 // ---------- UI ----------
 const $=id=>document.getElementById(id);
-const cv=$('cv'), ctx=cv.getContext('2d',{willReadFrequently:true});
+const view=$('view'), cv=$('cv'), ov=$('ov');
+const ctx=cv.getContext('2d',{willReadFrequently:true}), octx=ov.getContext('2d');
 const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
           set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const FIRST='S570 IR · Blue/Gold';
 let P=Object.assign({},DEF,BUILTIN[FIRST],LS.get('ir570.last')||{});
 let user=LS.get('ir570.presets')||{};
 let src=null,bmp=null,fileName='photo.jpg',spots=[],mode='view',healSize=14,showOrig=false;
-let outBlob=null,outName='';
+let outBlob=null,outName='',ringUntil=0;
 
+let tt=0;
+function status(t){
+  const el=$('toast'); if(!t){el.classList.remove('show');return;}
+  el.textContent=t;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+// ----- groups / sliders -----
 const MIX=['R','G','B'];
 const GROUPS=[
- {t:'Channel mixer',hint:'Each row says how much of the camera\'s R, G and B goes into that output channel. Blue/Gold needs a strong mix; Neutral leaves it at identity.',
-  items:[...[0,1,2,3,4,5,6,7,8].map(i=>['m'+i,'Out '+MIX[Math.floor(i/3)]+' ← in '+MIX[i%3],-2.5,2.5,0.01,2])]},
- {t:'White balance & tone',open:true,items:[
+ {tab:'Color',items:[
   ['temp','Temperature (− cooler, + warmer)',-100,100,1,0],['tint','Tint (− magenta, + green)',-100,100,1,0],
   ['gR','Red gain',0.25,3,0.01,2],['gG','Green gain',0.25,3,0.01,2],['gB','Blue gain',0.25,3,0.01,2],
   ['exp','Exposure (stops)',-2,2,0.05,2],['con','Contrast',-60,100,1,0],['sat','Saturation %',0,250,1,0]]},
- {t:'Vignette / flat-field',hint:'Brightens corners to cancel falloff. Use Color shift if the corners go a different color from the center.',items:[
-  ['vig','Corner brightening (− darkens)',-100,200,1,0],['vigSpread','Reach (edges only ← → toward center)',0,100,1,0],
+ {tab:'Mixer',hint:'Each output channel is built from the camera\'s R, G and B. Blue/Gold uses a strong mix; Neutral is identity.',
+  items:[0,1,2,3,4,5,6,7,8].map(i=>['m'+i,'Out '+MIX[Math.floor(i/3)]+' ← in '+MIX[i%3],-2.5,2.5,0.01,2])},
+ {tab:'Vignette',hint:'Brightens the corners to cancel falloff. Use Color shift if the corners turn a different color than the center.',items:[
+  ['vig','Corner brightening (− darkens)',-100,200,1,0],['vigSpread','Reach (edges only → toward center)',0,100,1,0],
   ['vigColor','Color shift (− blue edges, + red edges)',-100,100,1,0],['vigX','Center X',-50,50,1,0],['vigY','Center Y',-50,50,1,0]]},
- {t:'Distortion',items:[['dist','Amount (− fixes barrel, + fixes pincushion)',-50,50,1,0]]},
- {t:'Detail',items:[['dn','Noise reduction',0,100,1,0],['sh','Sharpen',0,200,1,0],['shR','Sharpen radius (px)',1,4,1,0]]}
+ {tab:'Lens',items:[['dist','Distortion (− fixes barrel, + fixes pincushion)',-50,50,1,0]]},
+ {tab:'Detail',items:[['dn','Noise reduction',0,100,1,0],['sh','Sharpen',0,200,1,0],['shR','Sharpen radius (px)',1,4,1,0]]}
 ];
-const ui={};
-const groupsEl=$('groups');
-for(const g of GROUPS){
-  const d=document.createElement('details'); if(g.open) d.open=true;
-  d.innerHTML='<summary>'+g.t+'</summary>';
-  const b=document.createElement('div'); b.className='body';
-  if(g.hint){const h=document.createElement('div');h.className='hint';h.textContent=g.hint;b.appendChild(h);}
+const ui={}, tabsEl=$('tabs'), panel=$('panel'), pages=[];
+GROUPS.forEach((g,gi)=>{
+  const tb=document.createElement('button');tb.textContent=g.tab;tabsEl.appendChild(tb);
+  const pg=document.createElement('div');pg.hidden=true;
+  if(g.hint){const h=document.createElement('div');h.className='hint';h.textContent=g.hint;pg.appendChild(h);}
   for(const [k,label,mn,mx,st,dec] of g.items){
-    const s=document.createElement('div'); s.className='sl';
-    s.innerHTML='<div class="t"><span></span><b></b></div><input type="range">';
+    const s=document.createElement('div');s.className='sl';
+    s.innerHTML='<div class="t"><span></span><button class="v"></button></div><input type="range">';
     s.querySelector('span').textContent=label;
-    const inp=s.querySelector('input'); inp.min=mn;inp.max=mx;inp.step=st;
-    const val=s.querySelector('b');
-    const fmt=v=>Number(v).toFixed(dec);
-    inp.addEventListener('input',()=>{P[k]=parseFloat(inp.value);val.textContent=fmt(P[k]);schedule();});
-    s.querySelector('.t').addEventListener('dblclick',()=>{P[k]=DEF[k];inp.value=P[k];val.textContent=fmt(P[k]);schedule();});
-    ui[k]={inp,val,fmt}; b.appendChild(s);
+    const inp=s.querySelector('input');inp.min=mn;inp.max=mx;inp.step=st;
+    const val=s.querySelector('.v');
+    const show=()=>{val.textContent=Number(P[k]).toFixed(dec);val.classList.toggle('mod',Math.abs(P[k]-DEF[k])>1e-9);};
+    inp.addEventListener('input',()=>{P[k]=parseFloat(inp.value);show();schedule();});
+    val.addEventListener('click',()=>{P[k]=DEF[k];inp.value=P[k];show();schedule();});
+    ui[k]={inp,show};pg.appendChild(s);
   }
-  d.appendChild(b); groupsEl.appendChild(d);
-}
-// dust group
-{
-  const d=document.createElement('details');
-  d.innerHTML='<summary>Dust healing</summary><div class="body"><div class="hint">Switch to <b>Heal dust</b>, zoom in, then tap a speck. It lightens dark specks to match their surroundings and is applied at full resolution on export.</div>'+
-   '<div class="sl"><div class="t"><span>Brush size (px)</span><b id="hsv">14</b></div><input id="hs" type="range" min="4" max="50" step="1" value="14" style="accent-color:var(--acc)"></div>'+
-   '<div class="row"><button id="hundo">Undo spot</button><button id="hclr">Clear all</button><span id="hcount" class="hint">0 spots</span></div></div>';
-  groupsEl.appendChild(d);
-}
-$('hs').addEventListener('input',e=>{healSize=+e.target.value;$('hsv').textContent=healSize;});
-$('hundo').onclick=()=>{spots.pop();updSpots();schedule();};
-$('hclr').onclick=()=>{spots=[];updSpots();schedule();};
-function updSpots(){$('hcount').textContent=spots.length+(spots.length===1?' spot':' spots');}
+  panel.appendChild(pg);pages.push({tb,pg});
+  tb.addEventListener('click',()=>selTab(gi));
+});
+function selTab(i){pages.forEach((p,j)=>{p.pg.hidden=j!==i;p.tb.classList.toggle('on',j===i);});panel.scrollTop=0;}
+selTab(0);
+function syncUI(){for(const k in ui){ui[k].inp.value=P[k];ui[k].show();}}
 
-function syncUI(){for(const k in ui){ui[k].inp.value=P[k];ui[k].val.textContent=ui[k].fmt(P[k]);}}
+// ----- pan / zoom -----
+let tx=0,ty=0,zoom=1,k0=1;
+const kNow=()=>k0*zoom;
+function zoomMax(){return Math.max(1,Math.min(16,4/k0));}
+function applyT(){
+  if(!src)return;
+  const vw=view.clientWidth,vh=view.clientHeight,k=kNow(),iw=src.w*k,ih=src.h*k;
+  tx=iw<=vw?(vw-iw)/2:Math.min(0,Math.max(vw-iw,tx));
+  ty=ih<=vh?(vh-ih)/2:Math.min(0,Math.max(vh-ih,ty));
+  const t='translate('+tx+'px,'+ty+'px) scale('+k+')';
+  cv.style.transform=t;ov.style.transform=t;
+  if(mode==='heal'||Date.now()<ringUntil) drawOv();
+}
+function fitView(){
+  if(!src)return;
+  k0=Math.min(view.clientWidth/src.w,view.clientHeight/src.h);zoom=1;tx=ty=0;applyT();drawOv();
+}
+function zoomAt(px,py,ratio){
+  const nz=Math.min(zoomMax(),Math.max(1,zoom*ratio)),r=nz/zoom;
+  tx=px-(px-tx)*r;ty=py-(py-ty)*r;zoom=nz;applyT();
+}
+function drawOv(){
+  if(!src)return;
+  octx.clearRect(0,0,ov.width,ov.height);
+  const k=kNow();octx.lineWidth=1.5/k;
+  if(mode==='heal'){
+    octx.strokeStyle='rgba(255,255,255,.9)';
+    for(const s of spots){octx.beginPath();octx.arc(s.x*src.w,s.y*src.h,Math.max(s.r*src.w,2/k),0,6.2832);octx.stroke();}
+  }
+  if(Date.now()<ringUntil){
+    const vw=view.clientWidth,vh=view.clientHeight;
+    octx.strokeStyle='rgba(255,200,80,.95)';octx.beginPath();
+    octx.arc((vw/2-tx)/k,(vh/2-ty)/k,healSize,0,6.2832);octx.stroke();
+  }
+}
+const ptrs=new Map();
+let g={moved:false,multi:false,t0:0,x0:0,y0:0,d0:0,mx:0,my:0};
+const vpos=e=>{const r=view.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};};
+view.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.ui')&&e.target.closest('.ui').id!=='empty')return;
+  if(!src)return;
+  try{view.setPointerCapture(e.pointerId);}catch(_){}
+  ptrs.set(e.pointerId,vpos(e));
+  if(ptrs.size===1){g={moved:false,multi:false,t0:Date.now(),x0:e.clientX,y0:e.clientY};}
+  else{
+    g.multi=true;
+    const a=[...ptrs.values()];
+    g.d0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;g.mx=(a[0].x+a[1].x)/2;g.my=(a[0].y+a[1].y)/2;
+  }
+});
+view.addEventListener('pointermove',e=>{
+  const p=ptrs.get(e.pointerId);if(!p)return;
+  const n=vpos(e),dx=n.x-p.x,dy=n.y-p.y;
+  p.x=n.x;p.y=n.y;
+  if(ptrs.size===1){
+    if(Math.hypot(e.clientX-g.x0,e.clientY-g.y0)>8)g.moved=true;
+    if(g.moved){tx+=dx;ty+=dy;applyT();}
+  }else if(ptrs.size===2){
+    const a=[...ptrs.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;
+    const mx=(a[0].x+a[1].x)/2,my=(a[0].y+a[1].y)/2;
+    tx+=mx-g.mx;ty+=my-g.my;
+    zoomAt(mx,my,d/g.d0);
+    g.d0=d;g.mx=mx;g.my=my;
+  }
+});
+const endP=e=>{
+  if(!ptrs.has(e.pointerId))return;
+  const single=ptrs.size===1;ptrs.delete(e.pointerId);
+  if(single&&!g.moved&&!g.multi&&Date.now()-g.t0<600&&e.type==='pointerup')tap(e.clientX,e.clientY);
+  if(ptrs.size===1)g.moved=true;
+};
+view.addEventListener('pointerup',endP);
+view.addEventListener('pointercancel',endP);
+view.addEventListener('wheel',e=>{if(!src)return;e.preventDefault();const p=vpos(e);zoomAt(p.x,p.y,e.deltaY<0?1.2:1/1.2);},{passive:false});
+window.addEventListener('resize',()=>{if(zoom===1)fitView();else applyT();});
 
-// ---------- rendering ----------
+function tap(cx,cy){
+  if(!src||mode==='view')return;
+  const r=view.getBoundingClientRect(),k=kNow();
+  const x=Math.round((cx-r.left-tx)/k),y=Math.round((cy-r.top-ty)/k);
+  if(x<0||y<0||x>=src.w||y>=src.h)return;
+  if(mode==='heal'){spots.push({x:x/src.w,y:y/src.h,r:healSize/src.w});updSpots();schedule();drawOv();}
+  else if(mode==='pick')pickNeutral(x,y);
+}
+
+// ----- tools -----
+for(const b of document.querySelectorAll('#modes button')){
+  b.addEventListener('click',()=>{
+    mode=b.dataset.m;
+    for(const o of document.querySelectorAll('#modes button'))o.classList.toggle('on',o===b);
+    $('healbar').hidden=mode!=='heal';
+    drawOv();
+    status(mode==='pick'?'Tap something that should be gray or white':mode==='heal'?'Zoom in, then tap a dust speck':'');
+  });
+}
+$('hs').addEventListener('input',e=>{healSize=+e.target.value;ringUntil=Date.now()+900;drawOv();setTimeout(drawOv,950);});
+$('hundo').onclick=()=>{spots.pop();updSpots();schedule();drawOv();};
+$('hclr').onclick=()=>{spots=[];updSpots();schedule();drawOv();};
+function updSpots(){$('hcount').textContent=spots.length;}
+const bf=$('before');
+const hold=v=>e=>{e.preventDefault();if(!src)return;showOrig=v;bf.classList.toggle('on',v);draw();};
+bf.addEventListener('pointerdown',hold(true));
+for(const ev of ['pointerup','pointerleave','pointercancel'])bf.addEventListener(ev,hold(false));
+bf.addEventListener('contextmenu',e=>e.preventDefault());
+
+// ----- rendering -----
 let raf=0;
-function resetExport(){outBlob=null;const b=$('export');b.textContent='Process & save JPG';}
+function resetExport(){outBlob=null;$('export').textContent='Export';}
 function schedule(){
-  resetExport(); LS.set('ir570.last',P);
-  if(raf) return;
+  resetExport();LS.set('ir570.last',P);
+  if(raf)return;
   raf=requestAnimationFrame(()=>{raf=0;draw();});
 }
 function draw(){
-  if(!src) return;
+  if(!src)return;
   const out=showOrig?src.data:render(src.data,src.w,src.h,P,spots);
   ctx.putImageData(new ImageData(new Uint8ClampedArray(out),src.w,src.h),0,0);
 }
 
-// ---------- loading ----------
+// ----- loading -----
 async function loadFile(f){
-  if(!f) return;
+  if(!f)return;
   status('Loading…');
   fileName=f.name||'photo.jpg';
-  try{ bmp=await createImageBitmap(f,{imageOrientation:'from-image'}); }
-  catch(e){ try{bmp=await createImageBitmap(f);}catch(e2){status('Could not read that image.');return;} }
+  try{bmp=await createImageBitmap(f,{imageOrientation:'from-image'});}
+  catch(e){try{bmp=await createImageBitmap(f);}catch(e2){status('Could not read that image.');return;}}
   const sc=Math.min(1,BASE/Math.max(bmp.width,bmp.height));
-  const w=Math.round(bmp.width*sc), h=Math.round(bmp.height*sc);
-  cv.width=w;cv.height=h;
+  const w=Math.round(bmp.width*sc),h=Math.round(bmp.height*sc);
+  cv.width=ov.width=w;cv.height=ov.height=h;
   ctx.drawImage(bmp,0,0,w,h);
   src={w,h,data:ctx.getImageData(0,0,w,h).data};
-  spots=[];updSpots();
-  $('empty').hidden=true;cv.hidden=false;$('export').disabled=false;
-  draw();status(bmp.width+' × '+bmp.height+' loaded');
+  spots=[];updSpots();resetExport();
+  $('empty').hidden=true;cv.hidden=false;ov.hidden=false;$('export').disabled=false;
+  fitView();draw();status(bmp.width+' × '+bmp.height);
 }
 $('file').addEventListener('change',e=>{loadFile(e.target.files[0]);e.target.value='';});
 
-// ---------- tapping on the image ----------
-cv.addEventListener('click',e=>{
-  if(!src||mode==='view') return;
-  const r=cv.getBoundingClientRect();
-  const x=Math.round((e.clientX-r.left)/r.width*cv.width), y=Math.round((e.clientY-r.top)/r.height*cv.height);
-  if(mode==='heal'){
-    spots.push({x:x/src.w,y:y/src.h,r:healSize/src.w});updSpots();schedule();
-  }else if(mode==='pick'){
-    pickNeutral(x,y);
-  }
-});
 function pickNeutral(px,py){
   let base=src.data;
-  if(P.dist!==0) base=distort(src.data,src.w,src.h,P.dist/100);
+  if(P.dist!==0)base=distort(src.data,src.w,src.h,P.dist/100);
   let sr=0,sg=0,sb=0,n=0;
-  for(let y=Math.max(0,py-4);y<=Math.min(src.h-1,py+4);y++) for(let x=Math.max(0,px-4);x<=Math.min(src.w-1,px+4);x++){
+  for(let y=Math.max(0,py-4);y<=Math.min(src.h-1,py+4);y++)for(let x=Math.max(0,px-4);x<=Math.min(src.w-1,px+4);x++){
     const i=(y*src.w+x)*4;sr+=base[i];sg+=base[i+1];sb+=base[i+2];n++;
   }
-  const [r,g,b]=mixPx(P,sr/n,sg/n,sb/n);
-  if(r<2||g<2||b<2){status('That spot is too dark to use as neutral.');return;}
-  const t=(r+g+b)/3, cl=v=>Math.min(3,Math.max(.25,v));
-  P.gR=cl(t/r);P.gG=cl(t/g);P.gB=cl(t/b);P.temp=0;P.tint=0;
-  syncUI();schedule();status('White balance set from that spot');
+  const [r,g2,b]=mixPx(P,sr/n,sg/n,sb/n);
+  if(r<2||g2<2||b<2){status('Too dark to use as neutral');return;}
+  const t=(r+g2+b)/3,cl=v=>Math.min(3,Math.max(.25,v));
+  P.gR=cl(t/r);P.gG=cl(t/g2);P.gB=cl(t/b);P.temp=0;P.tint=0;
+  syncUI();schedule();status('White balance set');
 }
 
-// ---------- toolbar ----------
-for(const b of document.querySelectorAll('#modes button')){
-  b.addEventListener('click',()=>{
-    mode=b.dataset.m;
-    for(const o of document.querySelectorAll('#modes button')) o.classList.toggle('on',o===b);
-    cv.style.cursor=mode==='view'?'default':'crosshair';
-    status(mode==='pick'?'Tap something that should be gray or white':mode==='heal'?'Tap a dust speck':'');
-  });
-}
-$('zoom').addEventListener('input',e=>{cv.style.width=(+e.target.value*100)+'%';});
-const bf=$('before');
-const hold=v=>e=>{e.preventDefault();showOrig=v;bf.classList.toggle('on',v);draw();};
-bf.addEventListener('pointerdown',hold(true));
-for(const ev of ['pointerup','pointerleave','pointercancel']) bf.addEventListener(ev,hold(false));
-bf.addEventListener('contextmenu',e=>e.preventDefault());
-
-function status(t){$('status').textContent=t||'';}
-
-// ---------- presets ----------
+// ----- presets / sheet -----
 const sel=$('presetSel');
 function refreshPresets(selected){
   sel.innerHTML='';
   const add=(label,val)=>{const o=document.createElement('option');o.value=val;o.textContent=label;sel.appendChild(o);};
-  add('Choose preset…','');
-  for(const k in BUILTIN) add(k,'b:'+k);
-  for(const k in user) add('★ '+k,'u:'+k);
-  if(selected) sel.value=selected;
+  add('Preset…','');
+  for(const k in BUILTIN)add(k,'b:'+k);
+  for(const k in user)add('★ '+k,'u:'+k);
+  if(selected)sel.value=selected;
 }
 function applyPreset(obj){P=Object.assign({},DEF,obj);syncUI();schedule();}
 sel.addEventListener('change',()=>{
-  const v=sel.value; if(!v) return;
-  const name=v.slice(2);
-  applyPreset(v[0]==='b'?BUILTIN[name]:user[name]);
+  const v=sel.value;if(!v)return;
+  const name=v.slice(2);applyPreset(v[0]==='b'?BUILTIN[name]:user[name]);
 });
+const sheet=$('sheet');
+$('more').onclick=()=>{sheet.hidden=false;};
+$('sclose').onclick=()=>{sheet.hidden=true;};
+sheet.addEventListener('click',e=>{if(e.target===sheet)sheet.hidden=true;});
+$('preset0').onclick=()=>{applyPreset({});sel.value='';status('All sliders reset');sheet.hidden=true;};
 $('psave').onclick=()=>{
-  const n=$('pname').value.trim(); if(!n){status('Type a preset name first.');return;}
-  if(BUILTIN[n]){status('That name is built in; pick another.');return;}
-  user[n]=Object.assign({},P);LS.set('ir570.presets',user);refreshPresets('u:'+n);status('Saved "'+n+'"');
+  const n=$('pname').value.trim();if(!n){status('Type a name first');return;}
+  if(BUILTIN[n]){status('That name is built in');return;}
+  user[n]=Object.assign({},P);LS.set('ir570.presets',user);refreshPresets('u:'+n);sheet.hidden=true;status('Saved "'+n+'"');
 };
 $('pdel').onclick=()=>{
   const v=sel.value;
-  if(v[0]!=='u'){status('Select one of your saved presets (★) to delete.');return;}
-  delete user[v.slice(2)];LS.set('ir570.presets',user);refreshPresets();status('Deleted');
+  if(v[0]!=='u'){status('Pick one of your ★ presets first');return;}
+  delete user[v.slice(2)];LS.set('ir570.presets',user);refreshPresets();sheet.hidden=true;status('Deleted');
 };
 async function shareOrDownload(blob,name,type){
   const file=new File([blob],name,{type});
@@ -409,18 +505,18 @@ $('pexp').onclick=()=>{
 $('pimp').addEventListener('change',async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
   try{
-    const j=JSON.parse(await f.text()); let n=0;
-    for(const k in (j.presets||{})){ if(BUILTIN[k]) continue; user[k]=Object.assign({},DEF,j.presets[k]);n++; }
-    LS.set('ir570.presets',user);refreshPresets();status('Imported '+n+' preset'+(n===1?'':'s'));
-  }catch(err){status('That file is not a preset file.');}
+    const j=JSON.parse(await f.text());let n=0;
+    for(const k in (j.presets||{})){if(BUILTIN[k])continue;user[k]=Object.assign({},DEF,j.presets[k]);n++;}
+    LS.set('ir570.presets',user);refreshPresets();sheet.hidden=true;status('Imported '+n);
+  }catch(err){status('Not a preset file');}
 });
 
-// ---------- export ----------
+// ----- export -----
 $('export').addEventListener('click',async()=>{
   const btn=$('export');
   if(outBlob){await shareOrDownload(outBlob,outName,'image/jpeg');return;}
-  if(!bmp) return;
-  btn.disabled=true;status('Processing full resolution…');
+  if(!bmp)return;
+  btn.disabled=true;btn.textContent='Working…';status('Processing full resolution…');
   await new Promise(r=>setTimeout(r,40));
   try{
     let W=bmp.width,H=bmp.height;
@@ -434,9 +530,9 @@ $('export').addEventListener('click',async()=>{
     outBlob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.95));
     c.width=c.height=0;
     outName=fileName.replace(/\.[^.]+$/,'')+'_ir.jpg';
-    btn.textContent='Save / share '+outName;
-    status('Done. Tap again to save or share ('+Math.round(outBlob.size/1024)+' KB).');
-  }catch(err){status('Export failed: '+err.message);}
+    btn.textContent='Save ✓';
+    status('Done. Tap Save to share or save the JPG ('+Math.round(outBlob.size/1024)+' KB)');
+  }catch(err){btn.textContent='Export';status('Export failed: '+err.message);}
   btn.disabled=false;
 });
 
