@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>S570 IR Correction</title>
+<style>
+:root{--bg:#151515;--panel:#202020;--line:#343434;--text:#e8e6e1;--dim:#9a9791;--acc:#d9d3c5}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.35 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{padding:10px 10px 90px;max-width:760px;margin:0 auto}
+h1{font-size:16px;margin:2px 0 8px;font-weight:600;letter-spacing:.02em}
+.row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+button,select,input[type=text],.btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:inherit;min-height:40px}
+button:active,.btn:active{background:#2c2c2c}
+button.on{background:var(--acc);color:#151515;border-color:var(--acc)}
+button:disabled{opacity:.45}
+select{flex:1;min-width:0}
+input[type=text]{flex:1;min-width:0}
+input[type=file]{display:none}
+.btn{display:inline-flex;align-items:center;cursor:pointer}
+#stage{position:relative;background:#0b0b0b;border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:56vh;min-height:120px;-webkit-overflow-scrolling:touch}
+#cv{display:block;width:100%;height:auto}
+#empty{padding:46px 16px;text-align:center;color:var(--dim)}
+.seg{display:flex;flex:1}
+.seg button{flex:1;border-radius:0;margin-left:-1px}
+.seg button:first-child{border-radius:8px 0 0 8px;margin-left:0}
+.seg button:last-child{border-radius:0 8px 8px 0}
+details{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:8px 0}
+summary{padding:12px;font-weight:600;cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";float:right;color:var(--dim)}
+details[open] summary::after{content:"–"}
+.body{padding:0 12px 10px}
+.sl{margin:8px 0}
+.sl .t{display:flex;justify-content:space-between;color:var(--dim);font-size:13px}
+.sl .t b{font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+.sl input[type=range]{width:100%;accent-color:var(--acc);margin:4px 0 0}
+.hint{color:var(--dim);font-size:13px;margin:6px 0}
+#bar{position:fixed;left:0;right:0;bottom:0;padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:rgba(21,21,21,.96);border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;justify-content:center}
+#bar button{flex:1;max-width:420px;background:var(--acc);color:#151515;border-color:var(--acc);font-weight:600}
+#status{position:fixed;left:0;right:0;bottom:64px;text-align:center;color:var(--dim);font-size:12px;pointer-events:none}
+.hold{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+</style>
+</head>
+<body>
+<h1>S570 IR Correction</h1>
+
+<div class="row">
+  <label class="btn" for="file">Load JPG</label>
+  <input id="file" type="file" accept="image/jpeg,image/*">
+  <select id="presetSel" aria-label="Preset"></select>
+</div>
+
+<div id="stage"><div id="empty">Load a JPG straight from the camera.</div><canvas id="cv" hidden></canvas></div>
+
+<div class="row">
+  <div class="seg" id="modes">
+    <button data-m="view" class="on">View</button>
+    <button data-m="pick">Pick neutral</button>
+    <button data-m="heal">Heal dust</button>
+  </div>
+</div>
+<div class="row">
+  <span style="color:var(--dim);font-size:13px">Zoom</span>
+  <input id="zoom" type="range" min="1" max="4" step="0.25" value="1" style="flex:1;accent-color:var(--acc)">
+  <button id="before" class="hold">Hold: before</button>
+</div>
+
+<div id="groups"></div>
+
+<details>
+  <summary>Presets</summary>
+  <div class="body">
+    <div class="row"><input id="pname" type="text" placeholder="Preset name"><button id="psave">Save</button></div>
+    <div class="row">
+      <button id="pdel">Delete selected</button>
+      <button id="pexp">Export JSON</button>
+      <label class="btn" for="pimp">Import JSON</label><input id="pimp" type="file" accept=".json,application/json">
+    </div>
+    <div class="hint">Presets hold every slider. Dust spots belong to the photo, so they are not saved in presets. Built-in presets can't be deleted; edit and save under a new name.</div>
+  </div>
+</details>
+
+<div id="status"></div>
+<div id="bar"><button id="export" disabled>Process &amp; save JPG</button></div>
+
+<script>
+// ==CORE==
+const BASE=1600;
+const DEF={m0:1,m1:0,m2:0,m3:0,m4:1,m5:0,m6:0,m7:0,m8:1,
+  gR:1,gG:1,gB:1,temp:0,tint:0,exp:0,con:0,sat:100,
+  vig:0,vigSpread:50,vigColor:0,vigX:0,vigY:0,
+  dist:0,dn:0,sh:0,shR:2};
+const BUILTIN={
+ 'S570 IR · Blue/Gold':{m0:1.6,m1:1.2,m2:-1.3,m3:1.0,m4:0.1,m5:0,m6:-0.2,m7:-1.9,m8:2.2,dn:25,sh:35},
+ 'S570 IR · Neutral':{gR:0.72,gG:1.28,gB:0.95,dn:15,sh:30},
+ 'S570 IR · Mono':{m0:0.6,m1:0.3,m2:0.1,m3:0.6,m4:0.3,m5:0.1,m6:0.6,m7:0.3,m8:0.1,con:10,dn:20,sh:30}
+};
+
+function boxBlur(src,w,h,r){
+  r=Math.max(1,Math.round(r));
+  const n=2*r+1, tmp=new Uint8ClampedArray(src.length), out=new Uint8ClampedArray(src.length);
+  for(let y=0;y<h;y++){
+    const row=y*w*4;
+    for(let c=0;c<3;c++){
+      let s=0;
+      for(let k=-r;k<=r;k++) s+=src[row+Math.min(w-1,Math.max(0,k))*4+c];
+      for(let x=0;x<w;x++){
+        tmp[row+x*4+c]=s/n;
+        s+=src[row+Math.min(w-1,x+r+1)*4+c]-src[row+Math.max(0,x-r)*4+c];
+      }
+    }
+  }
+  const st=w*4;
+  for(let x=0;x<w;x++){
+    for(let c=0;c<3;c++){
+      const col=x*4+c;
+      let s=0;
+      for(let k=-r;k<=r;k++) s+=tmp[Math.min(h-1,Math.max(0,k))*st+col];
+      for(let y=0;y<h;y++){
+        out[y*st+col]=s/n;
+        s+=tmp[Math.min(h-1,y+r+1)*st+col]-tmp[Math.max(0,y-r)*st+col];
+      }
+    }
+  }
+  return out;
+}
+
+function distort(src,w,h,k){
+  const out=new Uint8ClampedArray(src.length);
+  const cx=(w-1)/2, cy=(h-1)/2, R=Math.hypot(cx,cy);
+  for(let y=0;y<h;y++){
+    const ny=(y-cy)/R;
+    for(let x=0;x<w;x++){
+      const nx=(x-cx)/R, f=1+k*(nx*nx+ny*ny);
+      let sx=cx+nx*f*R, sy=cy+ny*f*R;
+      sx=Math.min(w-1,Math.max(0,sx)); sy=Math.min(h-1,Math.max(0,sy));
+      const x0=Math.floor(sx), y0=Math.floor(sy), x1=Math.min(w-1,x0+1), y1=Math.min(h-1,y0+1);
+      const fx=sx-x0, fy=sy-y0;
+      const i00=(y0*w+x0)*4, i10=(y0*w+x1)*4, i01=(y1*w+x0)*4, i11=(y1*w+x1)*4, o=(y*w+x)*4;
+      for(let c=0;c<3;c++){
+        const top=src[i00+c]+(src[i10+c]-src[i00+c])*fx;
+        const bot=src[i01+c]+(src[i11+c]-src[i01+c])*fx;
+        out[o+c]=top+(bot-top)*fy;
+      }
+      out[o+3]=255;
+    }
+  }
+  return out;
+}
+
+function heal(a,w,h,spots){
+  for(const s of spots){
+    const R=s.r*w, cx=s.x*w, cy=s.y*h;
+    const rs=[[],[],[]], fill=[0,0,0];
+    for(const k of [1.7,2.4]) for(let j=0;j<16;j++){
+      const t=j/16*6.2832+(k>2?0.2:0);
+      let x=Math.round(cx+Math.cos(t)*R*k), y=Math.round(cy+Math.sin(t)*R*k);
+      x=Math.min(w-1,Math.max(0,x)); y=Math.min(h-1,Math.max(0,y));
+      const i=(y*w+x)*4;
+      rs[0].push(a[i]); rs[1].push(a[i+1]); rs[2].push(a[i+2]);
+    }
+    for(let c=0;c<3;c++){ rs[c].sort((p,q)=>p-q); fill[c]=(rs[c][15]+rs[c][16])/2; }
+    const fl=.299*fill[0]+.587*fill[1]+.114*fill[2];
+    const ext=R*1.35;
+    const x0=Math.max(0,Math.floor(cx-ext)), x1=Math.min(w-1,Math.ceil(cx+ext));
+    const y0=Math.max(0,Math.floor(cy-ext)), y1=Math.min(h-1,Math.ceil(cy+ext));
+    for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+      const d=Math.hypot(x-cx,y-cy);
+      if(d>ext) continue;
+      let wg=d<=R?1:1-(d-R)/(ext-R);
+      wg=wg*wg*(3-2*wg);
+      const i=(y*w+x)*4;
+      const pl=.299*a[i]+.587*a[i+1]+.114*a[i+2];
+      if(fl<=pl) continue;   // dust is darker than its surroundings: only lighten
+      for(let c=0;c<3;c++) a[i+c]=a[i+c]+(fill[c]-a[i+c])*wg;
+    }
+  }
+}
+
+function mixPx(p,r,g,b){
+  return [p.m0*r+p.m1*g+p.m2*b, p.m3*r+p.m4*g+p.m5*b, p.m6*r+p.m7*g+p.m8*b];
+}
+
+function colorStage(a,w,h,p){
+  const gr=p.gR*(1+p.temp/200), gg=p.gG*(1-p.tint/200), gb=p.gB*(1-p.temp/200);
+  const ex=Math.pow(2,p.exp), cf=1+p.con/100, sat=p.sat/100;
+  const useV=p.vig!==0;
+  const cx=w/2+p.vigX/100*w/2, cy=h/2+p.vigY/100*h/2;
+  const norm=Math.hypot(Math.max(cx,w-cx),Math.max(cy,h-cy))||1;
+  const pw=4-3*(p.vigSpread/100);
+  const sR=p.vig/100*(1+p.vigColor/100), sG=p.vig/100, sB=p.vig/100*(1-p.vigColor/100);
+  const m0=p.m0,m1=p.m1,m2=p.m2,m3=p.m3,m4=p.m4,m5=p.m5,m6=p.m6,m7=p.m7,m8=p.m8;
+  for(let y=0;y<h;y++){
+    const dy=(y-cy)*(y-cy);
+    for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const r=a[i],g=a[i+1],b=a[i+2];
+      let R=(m0*r+m1*g+m2*b)*gr*ex, G=(m3*r+m4*g+m5*b)*gg*ex, B=(m6*r+m7*g+m8*b)*gb*ex;
+      if(useV){
+        const f=Math.pow(Math.sqrt((x-cx)*(x-cx)+dy)/norm,pw);
+        R*=Math.max(.05,1+sR*f); G*=Math.max(.05,1+sG*f); B*=Math.max(.05,1+sB*f);
+      }
+      if(cf!==1){R=(R-128)*cf+128;G=(G-128)*cf+128;B=(B-128)*cf+128;}
+      if(sat!==1){const l=.299*R+.587*G+.114*B;R=l+(R-l)*sat;G=l+(G-l)*sat;B=l+(B-l)*sat;}
+      a[i]=R;a[i+1]=G;a[i+2]=B;
+    }
+  }
+}
+
+function detailStage(a,w,h,p,scale){
+  if(p.dn>0){
+    const bl=boxBlur(a,w,h,Math.max(1,scale)), k=p.dn/100;
+    for(let i=0;i<a.length;i+=4){
+      a[i]+=(bl[i]-a[i])*k; a[i+1]+=(bl[i+1]-a[i+1])*k; a[i+2]+=(bl[i+2]-a[i+2])*k;
+    }
+  }
+  if(p.sh>0){
+    const bl=boxBlur(a,w,h,Math.max(1,p.shR*scale)), k=p.sh/100;
+    for(let i=0;i<a.length;i+=4){
+      a[i]+=(a[i]-bl[i])*k; a[i+1]+=(a[i+1]-bl[i+1])*k; a[i+2]+=(a[i+2]-bl[i+2])*k;
+    }
+  }
+}
+
+function render(src,w,h,p,spots){
+  const a=p.dist!==0?distort(src,w,h,p.dist/100):new Uint8ClampedArray(src);
+  if(spots.length) heal(a,w,h,spots);
+  colorStage(a,w,h,p);
+  detailStage(a,w,h,p,Math.max(w,h)/BASE);
+  return a;
+}
+// ==/CORE==
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+const cv=$('cv'), ctx=cv.getContext('2d',{willReadFrequently:true});
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+          set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const FIRST='S570 IR · Blue/Gold';
+let P=Object.assign({},DEF,BUILTIN[FIRST],LS.get('ir570.last')||{});
+let user=LS.get('ir570.presets')||{};
+let src=null,bmp=null,fileName='photo.jpg',spots=[],mode='view',healSize=14,showOrig=false;
+let outBlob=null,outName='';
+
+const MIX=['R','G','B'];
+const GROUPS=[
+ {t:'Channel mixer',hint:'Each row says how much of the camera\'s R, G and B goes into that output channel. Blue/Gold needs a strong mix; Neutral leaves it at identity.',
+  items:[...[0,1,2,3,4,5,6,7,8].map(i=>['m'+i,'Out '+MIX[Math.floor(i/3)]+' ← in '+MIX[i%3],-2.5,2.5,0.01,2])]},
+ {t:'White balance & tone',open:true,items:[
+  ['temp','Temperature (− cooler, + warmer)',-100,100,1,0],['tint','Tint (− magenta, + green)',-100,100,1,0],
+  ['gR','Red gain',0.25,3,0.01,2],['gG','Green gain',0.25,3,0.01,2],['gB','Blue gain',0.25,3,0.01,2],
+  ['exp','Exposure (stops)',-2,2,0.05,2],['con','Contrast',-60,100,1,0],['sat','Saturation %',0,250,1,0]]},
+ {t:'Vignette / flat-field',hint:'Brightens corners to cancel falloff. Use Color shift if the corners go a different color from the center.',items:[
+  ['vig','Corner brightening (− darkens)',-100,200,1,0],['vigSpread','Reach (edges only ← → toward center)',0,100,1,0],
+  ['vigColor','Color shift (− blue edges, + red edges)',-100,100,1,0],['vigX','Center X',-50,50,1,0],['vigY','Center Y',-50,50,1,0]]},
+ {t:'Distortion',items:[['dist','Amount (− fixes barrel, + fixes pincushion)',-50,50,1,0]]},
+ {t:'Detail',items:[['dn','Noise reduction',0,100,1,0],['sh','Sharpen',0,200,1,0],['shR','Sharpen radius (px)',1,4,1,0]]}
+];
+const ui={};
+const groupsEl=$('groups');
+for(const g of GROUPS){
+  const d=document.createElement('details'); if(g.open) d.open=true;
+  d.innerHTML='<summary>'+g.t+'</summary>';
+  const b=document.createElement('div'); b.className='body';
+  if(g.hint){const h=document.createElement('div');h.className='hint';h.textContent=g.hint;b.appendChild(h);}
+  for(const [k,label,mn,mx,st,dec] of g.items){
+    const s=document.createElement('div'); s.className='sl';
+    s.innerHTML='<div class="t"><span></span><b></b></div><input type="range">';
+    s.querySelector('span').textContent=label;
+    const inp=s.querySelector('input'); inp.min=mn;inp.max=mx;inp.step=st;
+    const val=s.querySelector('b');
+    const fmt=v=>Number(v).toFixed(dec);
+    inp.addEventListener('input',()=>{P[k]=parseFloat(inp.value);val.textContent=fmt(P[k]);schedule();});
+    s.querySelector('.t').addEventListener('dblclick',()=>{P[k]=DEF[k];inp.value=P[k];val.textContent=fmt(P[k]);schedule();});
+    ui[k]={inp,val,fmt}; b.appendChild(s);
+  }
+  d.appendChild(b); groupsEl.appendChild(d);
+}
+// dust group
+{
+  const d=document.createElement('details');
+  d.innerHTML='<summary>Dust healing</summary><div class="body"><div class="hint">Switch to <b>Heal dust</b>, zoom in, then tap a speck. It lightens dark specks to match their surroundings and is applied at full resolution on export.</div>'+
+   '<div class="sl"><div class="t"><span>Brush size (px)</span><b id="hsv">14</b></div><input id="hs" type="range" min="4" max="50" step="1" value="14" style="accent-color:var(--acc)"></div>'+
+   '<div class="row"><button id="hundo">Undo spot</button><button id="hclr">Clear all</button><span id="hcount" class="hint">0 spots</span></div></div>';
+  groupsEl.appendChild(d);
+}
+$('hs').addEventListener('input',e=>{healSize=+e.target.value;$('hsv').textContent=healSize;});
+$('hundo').onclick=()=>{spots.pop();updSpots();schedule();};
+$('hclr').onclick=()=>{spots=[];updSpots();schedule();};
+function updSpots(){$('hcount').textContent=spots.length+(spots.length===1?' spot':' spots');}
+
+function syncUI(){for(const k in ui){ui[k].inp.value=P[k];ui[k].val.textContent=ui[k].fmt(P[k]);}}
+
+// ---------- rendering ----------
+let raf=0;
+function resetExport(){outBlob=null;const b=$('export');b.textContent='Process & save JPG';}
+function schedule(){
+  resetExport(); LS.set('ir570.last',P);
+  if(raf) return;
+  raf=requestAnimationFrame(()=>{raf=0;draw();});
+}
+function draw(){
+  if(!src) return;
+  const out=showOrig?src.data:render(src.data,src.w,src.h,P,spots);
+  ctx.putImageData(new ImageData(new Uint8ClampedArray(out),src.w,src.h),0,0);
+}
+
+// ---------- loading ----------
+async function loadFile(f){
+  if(!f) return;
+  status('Loading…');
+  fileName=f.name||'photo.jpg';
+  try{ bmp=await createImageBitmap(f,{imageOrientation:'from-image'}); }
+  catch(e){ try{bmp=await createImageBitmap(f);}catch(e2){status('Could not read that image.');return;} }
+  const sc=Math.min(1,BASE/Math.max(bmp.width,bmp.height));
+  const w=Math.round(bmp.width*sc), h=Math.round(bmp.height*sc);
+  cv.width=w;cv.height=h;
+  ctx.drawImage(bmp,0,0,w,h);
+  src={w,h,data:ctx.getImageData(0,0,w,h).data};
+  spots=[];updSpots();
+  $('empty').hidden=true;cv.hidden=false;$('export').disabled=false;
+  draw();status(bmp.width+' × '+bmp.height+' loaded');
+}
+$('file').addEventListener('change',e=>{loadFile(e.target.files[0]);e.target.value='';});
+
+// ---------- tapping on the image ----------
+cv.addEventListener('click',e=>{
+  if(!src||mode==='view') return;
+  const r=cv.getBoundingClientRect();
+  const x=Math.round((e.clientX-r.left)/r.width*cv.width), y=Math.round((e.clientY-r.top)/r.height*cv.height);
+  if(mode==='heal'){
+    spots.push({x:x/src.w,y:y/src.h,r:healSize/src.w});updSpots();schedule();
+  }else if(mode==='pick'){
+    pickNeutral(x,y);
+  }
+});
+function pickNeutral(px,py){
+  let base=src.data;
+  if(P.dist!==0) base=distort(src.data,src.w,src.h,P.dist/100);
+  let sr=0,sg=0,sb=0,n=0;
+  for(let y=Math.max(0,py-4);y<=Math.min(src.h-1,py+4);y++) for(let x=Math.max(0,px-4);x<=Math.min(src.w-1,px+4);x++){
+    const i=(y*src.w+x)*4;sr+=base[i];sg+=base[i+1];sb+=base[i+2];n++;
+  }
+  const [r,g,b]=mixPx(P,sr/n,sg/n,sb/n);
+  if(r<2||g<2||b<2){status('That spot is too dark to use as neutral.');return;}
+  const t=(r+g+b)/3, cl=v=>Math.min(3,Math.max(.25,v));
+  P.gR=cl(t/r);P.gG=cl(t/g);P.gB=cl(t/b);P.temp=0;P.tint=0;
+  syncUI();schedule();status('White balance set from that spot');
+}
+
+// ---------- toolbar ----------
+for(const b of document.querySelectorAll('#modes button')){
+  b.addEventListener('click',()=>{
+    mode=b.dataset.m;
+    for(const o of document.querySelectorAll('#modes button')) o.classList.toggle('on',o===b);
+    cv.style.cursor=mode==='view'?'default':'crosshair';
+    status(mode==='pick'?'Tap something that should be gray or white':mode==='heal'?'Tap a dust speck':'');
+  });
+}
+$('zoom').addEventListener('input',e=>{cv.style.width=(+e.target.value*100)+'%';});
+const bf=$('before');
+const hold=v=>e=>{e.preventDefault();showOrig=v;bf.classList.toggle('on',v);draw();};
+bf.addEventListener('pointerdown',hold(true));
+for(const ev of ['pointerup','pointerleave','pointercancel']) bf.addEventListener(ev,hold(false));
+bf.addEventListener('contextmenu',e=>e.preventDefault());
+
+function status(t){$('status').textContent=t||'';}
+
+// ---------- presets ----------
+const sel=$('presetSel');
+function refreshPresets(selected){
+  sel.innerHTML='';
+  const add=(label,val)=>{const o=document.createElement('option');o.value=val;o.textContent=label;sel.appendChild(o);};
+  add('Choose preset…','');
+  for(const k in BUILTIN) add(k,'b:'+k);
+  for(const k in user) add('★ '+k,'u:'+k);
+  if(selected) sel.value=selected;
+}
+function applyPreset(obj){P=Object.assign({},DEF,obj);syncUI();schedule();}
+sel.addEventListener('change',()=>{
+  const v=sel.value; if(!v) return;
+  const name=v.slice(2);
+  applyPreset(v[0]==='b'?BUILTIN[name]:user[name]);
+});
+$('psave').onclick=()=>{
+  const n=$('pname').value.trim(); if(!n){status('Type a preset name first.');return;}
+  if(BUILTIN[n]){status('That name is built in; pick another.');return;}
+  user[n]=Object.assign({},P);LS.set('ir570.presets',user);refreshPresets('u:'+n);status('Saved "'+n+'"');
+};
+$('pdel').onclick=()=>{
+  const v=sel.value;
+  if(v[0]!=='u'){status('Select one of your saved presets (★) to delete.');return;}
+  delete user[v.slice(2)];LS.set('ir570.presets',user);refreshPresets();status('Deleted');
+};
+async function shareOrDownload(blob,name,type){
+  const file=new File([blob],name,{type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file]});return;}catch(e){if(e.name==='AbortError')return;}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),15000);
+}
+$('pexp').onclick=()=>{
+  const data=JSON.stringify({presets:Object.assign({'Current':P},user)},null,1);
+  shareOrDownload(new Blob([data],{type:'application/json'}),'s570-ir-presets.json','application/json');
+};
+$('pimp').addEventListener('change',async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const j=JSON.parse(await f.text()); let n=0;
+    for(const k in (j.presets||{})){ if(BUILTIN[k]) continue; user[k]=Object.assign({},DEF,j.presets[k]);n++; }
+    LS.set('ir570.presets',user);refreshPresets();status('Imported '+n+' preset'+(n===1?'':'s'));
+  }catch(err){status('That file is not a preset file.');}
+});
+
+// ---------- export ----------
+$('export').addEventListener('click',async()=>{
+  const btn=$('export');
+  if(outBlob){await shareOrDownload(outBlob,outName,'image/jpeg');return;}
+  if(!bmp) return;
+  btn.disabled=true;status('Processing full resolution…');
+  await new Promise(r=>setTimeout(r,40));
+  try{
+    let W=bmp.width,H=bmp.height;
+    if(W*H>16e6){const s=Math.sqrt(16e6/(W*H));W=Math.floor(W*s);H=Math.floor(H*s);}
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const x=c.getContext('2d',{willReadFrequently:true});
+    x.drawImage(bmp,0,0,W,H);
+    const id=x.getImageData(0,0,W,H);
+    const out=render(id.data,W,H,P,spots);
+    x.putImageData(new ImageData(out,W,H),0,0);
+    outBlob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.95));
+    c.width=c.height=0;
+    outName=fileName.replace(/\.[^.]+$/,'')+'_ir.jpg';
+    btn.textContent='Save / share '+outName;
+    status('Done. Tap again to save or share ('+Math.round(outBlob.size/1024)+' KB).');
+  }catch(err){status('Export failed: '+err.message);}
+  btn.disabled=false;
+});
+
+refreshPresets();syncUI();
+</script>
+</body>
+</html>
